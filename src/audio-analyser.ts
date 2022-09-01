@@ -6,8 +6,16 @@ export default class VolumeAnalyser {
   bufferLength: any;
   active: boolean;
 
-  constructor(canvasCtx) {
+  silenceThreshold = 10;
+  silenceTimeTreshhold = 2000;
+
+  isSilence: boolean;
+  silenceStartTime: number;
+  onSilence = () => {};
+
+  constructor(canvasCtx, onSilence) {
     this.canvasCtx = canvasCtx;
+    this.onSilence = onSilence;
   }
 
   initStream = stream => {
@@ -52,7 +60,6 @@ export default class VolumeAnalyser {
     const WIDTH = this.canvasCtx.canvas.width;
     const HEIGHT = this.canvasCtx.canvas.height;
 
-    const drawVisual = requestAnimationFrame(this.drawCanvas);
     analyser.getByteTimeDomainData(dataArray);
 
     canvasCtx.fillStyle = 'rgb(200, 200, 200)';
@@ -68,9 +75,31 @@ export default class VolumeAnalyser {
 
     const array = new Uint8Array(bufferLength);
     analyser.getByteFrequencyData(array);
-    // const arraySum = array.reduce((a, value) => a + value, 0);
-    // const average = arraySum / array.length;
-    // return Math.round(average);
+    const arraySum = array.reduce((a, value) => a + value, 0);
+    const average = arraySum / array.length;
+    const isSilence = average < this.silenceThreshold;
+
+    if (isSilence && !this.isSilence) {
+      this.silenceStartTime = Date.now();
+      this.isSilence = true;
+    }
+
+    if (isSilence && this.isSilence) {
+      const silenceTime = Date.now() - this.silenceStartTime;
+
+      if (silenceTime > this.silenceTimeTreshhold) {
+        this.onSilence();
+
+        this.silenceStartTime = Date.now();
+        this.isSilence = false;
+      }
+    }
+
+    if (!isSilence && this.isSilence) {
+      this.silenceStartTime = 0;
+      this.isSilence = false;
+    }
+
     for (let i = 0; i < bufferLength; i++) {
       barHeight = dataArray[i] / 2;
 
@@ -79,5 +108,7 @@ export default class VolumeAnalyser {
 
       x += barWidth + 1;
     }
+
+    requestAnimationFrame(this.drawCanvas);
   };
 }

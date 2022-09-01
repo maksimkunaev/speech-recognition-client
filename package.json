@@ -24,7 +24,8 @@
   },
   "scripts": {
     "build": "rollup -c --environment PORT=4444 --environment INCLUDE_DEPS,BUILD:production",
-    "dev": "rollup --config rollup.config.dev.js --environment PORT=4444 --environment INCLUDE_DEPS,BUILD:production --watch"
+    "dev": "rollup --config rollup.config.dev.js --environment PORT=4444 --environment INCLUDE_DEPS,BUILD:production --watch",
+    "serve": "serve src/ -p 3000"
   },
   "description": "",
   "bugs": {

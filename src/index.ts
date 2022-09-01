@@ -1,29 +1,39 @@
-import AudioRecorder from './audio-recorder';
-import VolumeAnalyser from './audio-analyser';
+import { getReply } from './api/get-reply';
 import SpeechRecognition from './speech-recognition';
-
-const audioEL = <HTMLAudioElement>document.querySelector('audio');
+const transcriptEl = <HTMLElement>document.querySelector('.transcript');
+const replyEl = <HTMLElement>document.querySelector('.reply');
 const statusEl = <HTMLElement>document.querySelector('.status');
-const canvas = <HTMLCanvasElement>document.querySelector('.volume-analyser');
 const recordEl = <HTMLElement>document.querySelector('.record');
 const stopEl = <HTMLElement>document.querySelector('.stop');
-const recognizer = new SpeechRecognition('/api/transcript');
-const analyser = new VolumeAnalyser(canvas.getContext('2d'));
 
-const recorder = new AudioRecorder({
-  onRecordStart: stream => {
-    statusEl.classList.add('active');
-    analyser.start(stream);
-  },
-  onRecordStop: blob => {
-    statusEl.classList.remove('active');
-    const src = URL.createObjectURL(blob);
-    audioEL.src = src;
-    analyser.stop();
+const recognizeUrl = 'http://localhost:5000/transcript';
+const replyUrl = 'http://localhost:5000/gpt';
 
-    recognizer.recognize(blob);
-  },
-});
+const recognition = new SpeechRecognition(recognizeUrl);
 
-recordEl.addEventListener('click', recorder.start);
-stopEl.addEventListener('click', recorder.stop);
+const start = async () => {
+  recognition.start();
+  statusEl.classList.add('active');
+};
+
+const stop = () => {
+  recognition.stop();
+  statusEl.classList.remove('active');
+};
+
+recognition.onspeechend = () => {
+  setTimeout(() => {
+    start();
+  }, 50);
+};
+
+recognition.onresult = async event => {
+  const { transcript } = event.results[0][0];
+  transcriptEl.textContent = transcript;
+
+  const reply = await getReply(replyUrl, transcript);
+  replyEl.textContent = reply;
+};
+
+recordEl.addEventListener('click', start);
+stopEl.addEventListener('click', stop);
