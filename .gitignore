@@ -4,7 +4,7 @@
 node_modules
 
 # production
-src/demo/bundle.js
+src/bundle.js
 dist
 
 # misc
