@@ -4,9 +4,9 @@ import typescript from 'rollup-plugin-typescript2';
 import livereload from 'rollup-plugin-livereload';
 
 export default {
-  input: 'src/index.ts',
+  input: 'src/demo/main.ts',
   output: {
-    file: 'src/bundle.js',
+    file: 'src/demo/bundle.js',
     format: 'iife',
   },
   plugins: [

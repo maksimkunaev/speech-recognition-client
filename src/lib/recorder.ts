@@ -56,9 +56,6 @@ export default class AudioRecorder {
           this.mediaRecorder.ondataavailable = e => {
             if (this.isSpeaking || this.chunks.length === 0) {
               this.chunks.push(e.data);
-              console.log('ondataavailable add', e.data);
-            } else {
-              console.log('ondataavailable skip -- ', e.data);
             }
           };
         })

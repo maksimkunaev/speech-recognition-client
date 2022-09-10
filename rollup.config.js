@@ -5,9 +5,9 @@ import { uglify } from 'rollup-plugin-uglify';
 import optimizeJs from 'rollup-plugin-optimize-js';
 
 export default {
-  input: 'src/index.ts',
+  input: 'src/demo/main.ts',
   output: {
-    dir: 'dist/',
+    dir: 'dist/demo',
     format: 'esm',
     sourcemap: true,
     preserveModules: true,

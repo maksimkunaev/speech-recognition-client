@@ -54,6 +54,7 @@ export default class VolumeAnalyser {
     if (!this.active) {
       return;
     }
+
     const { analyser, dataArray, canvasCtx, bufferLength } = this;
     const WIDTH = this.canvasCtx.canvas.width;
     const HEIGHT = this.canvasCtx.canvas.height;

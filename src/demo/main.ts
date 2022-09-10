@@ -1,15 +1,16 @@
-import { getReply } from './api/get-reply';
-import SpeechRecognition from './speech-recognition';
+import { getReply } from './get-reply';
+import SpeechRecognition from '../lib/speech-recognition';
 import SpeechSynthesiser from './speech-synthesis';
-import { Author } from './types';
+import { Author, Message } from './types';
 
 const messagesEl = <HTMLElement>document.querySelector('.messages');
 const toggleEl = <HTMLElement>document.querySelector('.toggle');
 
-const recognizeUrl = 'http://localhost:5000/transcript';
-const replyUrl = 'http://localhost:5000/gpt';
+const recognizeUrl = '/transcript';
+const replyUrl = '/gpt';
+const canvas = <HTMLCanvasElement>document.querySelector('.volume-analyser');
 
-const recognition = new SpeechRecognition(recognizeUrl);
+const recognition = new SpeechRecognition(recognizeUrl, canvas);
 const speechSynthesiser = new SpeechSynthesiser();
 
 recognition.continuous = false;
@@ -17,7 +18,15 @@ recognition.lang = 'en-US';
 recognition.interimResults = false;
 recognition.maxAlternatives = 1;
 
-const state = {
+type State = {
+  recording: boolean;
+  stopText: string;
+  playText: string;
+  messages: Message[];
+  isStopped: boolean;
+};
+
+const state: State = {
   recording: false,
   stopText: '⏹️',
   playText: '🎙️',
@@ -27,18 +36,24 @@ const state = {
 
 const start = async () => {
   recognition.start();
+  console.log('start----->');
+
   toggleEl.classList.add('animate');
+  setToogle(state.stopText);
   state.isStopped = false;
 };
 
 const stop = () => {
   recognition.stop();
   toggleEl.classList.remove('animate');
+  setToogle(state.playText);
   state.isStopped = true;
+  console.log('stop----->');
 };
 
 recognition.onspeechend = () => {
   recognition.stop();
+  console.log('stop----->');
 };
 
 recognition.onerror = event => {
@@ -49,6 +64,8 @@ recognition.onend = () => {
   if (state.isStopped) {
     return;
   }
+
+  // console.log('start after onend', state.isStopped);
   setTimeout(start, 0);
 };
 
@@ -64,21 +81,30 @@ recognition.onresult = async event => {
   });
   renderHTML();
 
-  const reply = await getReply(replyUrl, state.messages);
+  const reply = await getReply(
+    replyUrl,
+    state.messages
+    // "I'm old enough to know better, but young enough to still do it anyway."
+  );
 
   state.messages.push({
     text: reply,
     author: Author.Bot,
+    isBot: true,
   });
   renderHTML();
 
+  // stop();
   // speechSynthesiser.speak(reply);
+  // speechSynthesiser.onend = () => {
+  //   start();
+  //   // console.log('start after speech end', recognition);
+  // };
 };
 
 toggleEl.addEventListener('click', () => {
   state.recording = !state.recording;
   state.recording ? start() : stop();
-  setToogle(state.recording ? state.stopText : state.playText);
 });
 
 function setToogle(text) {

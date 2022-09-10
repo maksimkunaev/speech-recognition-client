@@ -1,11 +1,19 @@
-import { Message } from 'src/types';
+import { Message } from './types';
 
 type ReplyResponse = {
   message: string;
-  data: { text: string };
+  data: string;
 };
 
-export const getReply = async (url: string, messages: Message[]) => {
+export const getReply = async (
+  url: string,
+  messages: Message[],
+  testReply?: string
+): Promise<string> => {
+  if (testReply) {
+    return testReply;
+  }
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -14,13 +22,16 @@ export const getReply = async (url: string, messages: Message[]) => {
         'Content-Type': 'application/json',
       },
     });
+
     const result: ReplyResponse = (await response.json()) as ReplyResponse;
     if (response.status >= 300) {
       throw new Error(response.statusText);
     }
 
-    return result.data.text;
+    return result.data;
   } catch (err) {
     console.error(err);
+
+    return '';
   }
 };

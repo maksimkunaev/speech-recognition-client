@@ -29,7 +29,7 @@ export class CheckVolume {
   onSpeechStart = () => {};
   onSpeechEnd = () => {};
   timer = null;
-  minVolumeTreshhold = 10;
+  minVolumeTreshhold = 20;
   minSilenceDelay = 700;
 
   constructor(stream, onSpeechStart, onSpeechEnd) {
