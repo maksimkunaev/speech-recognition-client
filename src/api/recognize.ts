@@ -24,6 +24,6 @@ export const recognize = async (url: string, blob: Blob) => {
 
     return result.data.transcript[0].transcription;
   } catch (err) {
-    throw err;
+    console.error(err);
   }
 };

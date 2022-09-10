@@ -1,39 +1,98 @@
 import { getReply } from './api/get-reply';
 import SpeechRecognition from './speech-recognition';
-const transcriptEl = <HTMLElement>document.querySelector('.transcript');
-const replyEl = <HTMLElement>document.querySelector('.reply');
-const statusEl = <HTMLElement>document.querySelector('.status');
-const recordEl = <HTMLElement>document.querySelector('.record');
-const stopEl = <HTMLElement>document.querySelector('.stop');
+import SpeechSynthesiser from './speech-synthesis';
+import { Author } from './types';
+
+const messagesEl = <HTMLElement>document.querySelector('.messages');
+const toggleEl = <HTMLElement>document.querySelector('.toggle');
 
 const recognizeUrl = 'http://localhost:5000/transcript';
 const replyUrl = 'http://localhost:5000/gpt';
 
 const recognition = new SpeechRecognition(recognizeUrl);
+const speechSynthesiser = new SpeechSynthesiser();
+
+recognition.continuous = false;
+recognition.lang = 'en-US';
+recognition.interimResults = false;
+recognition.maxAlternatives = 1;
+
+const state = {
+  recording: false,
+  stopText: '⏹️',
+  playText: '🎙️',
+  messages: [],
+  isStopped: false,
+};
 
 const start = async () => {
   recognition.start();
-  statusEl.classList.add('active');
+  toggleEl.classList.add('animate');
+  state.isStopped = false;
 };
 
 const stop = () => {
   recognition.stop();
-  statusEl.classList.remove('active');
+  toggleEl.classList.remove('animate');
+  state.isStopped = true;
 };
 
 recognition.onspeechend = () => {
-  setTimeout(() => {
-    start();
-  }, 50);
+  recognition.stop();
+};
+
+recognition.onerror = event => {
+  console.log(`Error occurred in recognition: ${event.error}`);
+};
+
+recognition.onend = () => {
+  if (state.isStopped) {
+    return;
+  }
+  setTimeout(start, 0);
 };
 
 recognition.onresult = async event => {
   const { transcript } = event.results[0][0];
-  transcriptEl.textContent = transcript;
 
-  const reply = await getReply(replyUrl, transcript);
-  replyEl.textContent = reply;
+  if (transcript === '') {
+    return;
+  }
+  state.messages.push({
+    text: transcript,
+    author: Author.You,
+  });
+  renderHTML();
+
+  const reply = await getReply(replyUrl, state.messages);
+
+  state.messages.push({
+    text: reply,
+    author: Author.Bot,
+  });
+  renderHTML();
+
+  // speechSynthesiser.speak(reply);
 };
 
-recordEl.addEventListener('click', start);
-stopEl.addEventListener('click', stop);
+toggleEl.addEventListener('click', () => {
+  state.recording = !state.recording;
+  state.recording ? start() : stop();
+  setToogle(state.recording ? state.stopText : state.playText);
+});
+
+function setToogle(text) {
+  toggleEl.textContent = text;
+}
+
+setToogle(state.playText);
+
+function renderHTML() {
+  messagesEl.innerHTML = state.messages
+    .map(
+      message => `<div class="message ${message.author}">${message.text}</div>`
+    )
+    .join('');
+}
+
+renderHTML();

@@ -1,58 +1,75 @@
-import AudioRecorder from './audio-recorder';
-import VolumeAnalyser from './audio-analyser';
-import { recognize } from './api/recogize';
+import AudioRecorder from './recorder';
+import VolumeAnalyser from './audio-visualiser';
+import { recognize } from './api/recognize';
+import { saveAudio } from './utils/helpers';
 
 const canvas = <HTMLCanvasElement>document.querySelector('.volume-analyser');
 
-export default class SpeechRecognition {
+class SpeechRecognition {
   recorder: AudioRecorder;
   analyser: VolumeAnalyser;
   onspeechend: () => void;
+  onerror: (event: any) => void;
+  onend: () => void;
+  minVolume: number = 7;
+
+  continuous: boolean;
+  lang: 'en-US';
+  interimResults: boolean;
+  maxAlternatives: number;
 
   constructor(public url: string) {
     this.url = url;
-    this.analyser = new VolumeAnalyser(
-      canvas.getContext('2d'),
-      this._onspeechend
-    );
+    this.analyser = new VolumeAnalyser(canvas.getContext('2d'));
 
+    this.init();
+  }
+
+  async init() {
     this.recorder = new AudioRecorder({
       onRecordStart: stream => {
         this.analyser.start(stream);
       },
-      onRecordStop: async blob => {
+      onSpeechEnd: () => {
+        this.recorder.stopRecord();
+      },
+      onRecordStop: async chunks => {
         this.analyser.stop();
-        const transcript = await recognize(this.url, blob);
+        // saveAudio(chunks);
 
-        const event = {
-          results: [
-            [
-              {
-                transcript,
-              },
-            ],
-          ],
-        };
-
-        this.onresult(event);
+        this.onRecognize(new Blob(chunks));
+        this.onspeechend();
+        this.onend();
       },
     });
   }
 
+  onRecognize = async (blob: Blob) => {
+    const transcript = await recognize(this.url, blob);
+    const event = {
+      results: [
+        [
+          {
+            transcript,
+          },
+        ],
+      ],
+    };
+
+    this.onresult(event);
+  };
+
   start = () => {
-    this.recorder.start();
+    this.recorder.startRecord();
   };
 
   onresult = transcript => {};
 
-  _onspeechend = () => {
-    this.recorder.stop();
-    this.onspeechend();
-  };
-
   stop = () => {
-    this.recorder.stop();
+    this.recorder.stopRecord();
   };
 }
 
-// window.SpeechRecognition || webkitSpeechRecognition || SpeechRecognition;
+export default window.SpeechRecognition ||
+  window.webkitSpeechRecognition ||
+  SpeechRecognition;

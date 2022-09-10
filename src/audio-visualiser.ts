@@ -11,11 +11,9 @@ export default class VolumeAnalyser {
 
   isSilence: boolean;
   silenceStartTime: number;
-  onSilence = () => {};
 
-  constructor(canvasCtx, onSilence) {
+  constructor(canvasCtx) {
     this.canvasCtx = canvasCtx;
-    this.onSilence = onSilence;
   }
 
   initStream = stream => {
@@ -82,22 +80,6 @@ export default class VolumeAnalyser {
     if (isSilence && !this.isSilence) {
       this.silenceStartTime = Date.now();
       this.isSilence = true;
-    }
-
-    if (isSilence && this.isSilence) {
-      const silenceTime = Date.now() - this.silenceStartTime;
-
-      if (silenceTime > this.silenceTimeTreshhold) {
-        this.onSilence();
-
-        this.silenceStartTime = Date.now();
-        this.isSilence = false;
-      }
-    }
-
-    if (!isSilence && this.isSilence) {
-      this.silenceStartTime = 0;
-      this.isSilence = false;
     }
 
     for (let i = 0; i < bufferLength; i++) {

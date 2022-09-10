@@ -19,89 +19,91 @@
       }
       
       .container {
-        position: absolute;
-        top: 0;
-        left: 0;
         width: 100%;
         height: 100%;
-        z-index: 1;
         padding: 25px;
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        font-size: 1.2rem;
+        font-family: fantasy;
+        overflow: auto;
       }
 
-    .view {
-      padding: 15px 0;
-    }
-
-    .control {
-      padding: 8px 24px;
-      border: 1px solid #acacac;
-      border-radius: 4px;
-      background: transparent;
-      cursor: pointer;
-      margin-left: 15px;
-    }
-
-    .control:hover {
-      background: #d8d4cb;;
-    }
-    
-    .control:active {
-      border-color: #070602;;
-    }
-
-    .status {
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background-color: #828282;
-      transition: transform 0.2s ease-in-out;
-      margin-left: 15px;
-    }
-
-    .status.active {
-      background-color: #1ed36f;
-      animation: wave 1.5s;
-      animation-iteration-count: infinite;
-      animation-timing-function: ease-in-out;
-    }
-
-    .audio-controls {
-      display: flex;
-      align-items: center;
-    }
-
-    .volume-analyser,
-    .audio-controls,
-    .transcript{
-      margin-top: 15px;
-    }
-
-    @keyframes wave {
-      0%   {
-        transform: scale(1);
+      .view {
+        padding: 15px 0;
       }
-      50%   {
-        transform: scale(1.3);
+
+      .control {
+        padding: 16px 54px;
+        border: 1px solid #acacac;
+        border-radius: 24px;
+        background: transparent;
+        cursor: pointer;
+        margin-left: 15px;
+        font-size: 2rem;
       }
-      100% {
-        transform: scale(1);
+
+      .control:hover {
+        border-color: #070602;
       }
-    }
+      
+      .control:active {
+        border-color: #070602;
+      }
+
+      .control.animate {
+        animation: wave 1.5s;
+        animation-iteration-count: infinite;
+        animation-timing-function: ease-in-out;
+      }
+
+      .audio-controls {
+        display: flex;
+        align-items: center;
+      }
+
+      .volume-analyser,
+      .audio-controls,
+      .transcript{
+        margin-top: 15px;
+      }
+
+      .volume-analyser {
+        background: aquamarine;
+      }
+
+      @keyframes wave {
+        0%   {
+          box-shadow: 0px 0px 4px 0px #3df000
+        }
+        50%   {
+          box-shadow: 0px 0px 4px 5px #3df000
+        }
+        100% {
+          box-shadow: 0px 0px 4px 0px #3df000
+        }
+      }
+
+
+      .messages {
+        max-width: 100%;
+      }
+      .message {
+        border: 1px solid;
+        border-radius: 8px;
+        padding: 8px 16px;
+        margin-top: 16px;
+      }
     </style>
   </head>
   <body>
-    <canvas></canvas>
     <div class="container">
-      <audio src="" controls>audio</audio>
-      <div class="audio-controls">
-        <button class="record control">record</button>
-        <button class="stop control">stop</button>
-        <div class="status"></div>
-      </div>
-      
-      <p class="transcript"></p>
-      <p class="reply"></p>
+      <button class="toggle control">toggle</button>
+      <div class="messages"></div>
       <canvas class="volume-analyser"></canvas>
+      <div id="soundClips"></div>     
+
     </div>
     <script src="bundle.js"></script>
   </body>
