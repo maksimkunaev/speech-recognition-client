@@ -4,7 +4,7 @@ import {
   register,
 } from 'extendable-media-recorder';
 import { connect } from 'extendable-media-recorder-wav-encoder';
-import { CheckVolume } from './utils/helpers';
+import { VolumeDetector } from './utils/helpers';
 
 export default class AudioRecorder {
   stream: any;
@@ -12,15 +12,13 @@ export default class AudioRecorder {
   mediaRecorder: IMediaRecorder;
   onRecordStop: (chunks: Blob[]) => void;
   onRecordStart: (stream: any) => void;
-  onSpeechEnd: (stream: any) => void;
-
   isSpeaking = false;
+  volumeDetector: VolumeDetector;
 
-  constructor({ onRecordStop, onRecordStart, onSpeechEnd }) {
+  constructor({ onRecordStop, onRecordStart }) {
     this.init();
     this.onRecordStop = onRecordStop;
     this.onRecordStart = onRecordStart;
-    this.onSpeechEnd = onSpeechEnd;
   }
 
   init = async () => {
@@ -37,21 +35,28 @@ export default class AudioRecorder {
           });
 
           this.mediaRecorder.onstop = e => {
-            this.onStop();
+            this.onRecordStop(this.chunks);
+            this.chunks = [];
           };
 
           this.stream = stream;
 
           const onSpeechStart = () => {
+            // console.log('recorder: onSpeechStart()');
             this.isSpeaking = true;
           };
 
-          const onSpeechEnd = () => {
+          const onVoidDetected = () => {
+            // console.log('recorder: onVoidDetected()');
             this.stopRecord();
             this.isSpeaking = false;
           };
 
-          new CheckVolume(stream, onSpeechStart, onSpeechEnd);
+          this.volumeDetector = new VolumeDetector(
+            stream,
+            onSpeechStart,
+            onVoidDetected
+          );
 
           this.mediaRecorder.ondataavailable = e => {
             if (this.isSpeaking || this.chunks.length === 0) {
@@ -66,16 +71,15 @@ export default class AudioRecorder {
   };
 
   startRecord() {
+    // console.log('recorder: startRecord()');
     this.mediaRecorder.start(1000);
     this.onRecordStart(this.stream);
+    this.volumeDetector.start();
   }
 
   stopRecord() {
+    // console.log('recorder: stopRecord()');
     this.mediaRecorder.stop();
-  }
-
-  private onStop() {
-    this.onRecordStop(this.chunks);
-    this.chunks = [];
+    this.volumeDetector.stop();
   }
 }

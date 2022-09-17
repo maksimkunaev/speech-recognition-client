@@ -6409,27 +6409,38 @@
   const connect = extendableMediaRecorderWavEncoder.connect;
   URL.revokeObjectURL(url);
 
-  class CheckVolume {
+  class VolumeDetector {
       isSpeaking = false;
       onSpeechStart = () => { };
-      onSpeechEnd = () => { };
+      onVoidDetected = () => { };
       timer = null;
-      minVolumeTreshhold = 20;
-      minSilenceDelay = 700;
-      constructor(stream, onSpeechStart, onSpeechEnd) {
+      minVolumeTreshhold = 14;
+      minSilenceDelay = 900;
+      isActive = false;
+      startTime;
+      speechStartTime;
+      start = () => {
+          this.isActive = true;
+      };
+      stop = () => {
+          this.isActive = false;
+      };
+      constructor(stream, onSpeechStart, onVoidDetected) {
           this.onSpeechStart = onSpeechStart;
-          this.onSpeechEnd = onSpeechEnd;
+          this.onVoidDetected = onVoidDetected;
           const audioContext = new AudioContext();
           const analyser = audioContext.createAnalyser();
           const microphone = audioContext.createMediaStreamSource(stream);
           const scriptProcessor = audioContext.createScriptProcessor(2048, 1, 1);
           analyser.smoothingTimeConstant = 0.8;
           analyser.fftSize = 1024;
-          const that = this;
           microphone.connect(analyser);
           analyser.connect(scriptProcessor);
           scriptProcessor.connect(audioContext.destination);
           scriptProcessor.onaudioprocess = () => {
+              if (!this.isActive) {
+                  return;
+              }
               const array = new Uint8Array(analyser.frequencyBinCount);
               analyser.getByteFrequencyData(array);
               const arraySum = array.reduce((a, value) => a + value, 0);
@@ -6437,28 +6448,41 @@
               {
                   // if high level of volume detected we trigger "onspeechstart" event and set isSpeaking to true
                   if (average > this.minVolumeTreshhold) {
-                      if (!that.isSpeaking) {
-                          that.isSpeaking = true;
-                          that.onSpeechStart();
+                      if (!this.isSpeaking) {
+                          this.isSpeaking = true;
+                          this.onSpeechStart();
+                          this.speechStartTime = Date.now();
+                          // console.log('volumeDetector: onSpeechStart()');
                       }
-                      else {
-                          clearTimeout(that.timer);
-                          that.timer = null;
+                      else if (this.timer) {
+                          // console.log('volumeDetector clearTimeout', this.timer);
+                          clearTimeout(this.timer);
+                          this.timer = null;
                       }
                   }
-                  // if low level of volume detected we set timer to 1 second and set flag that timer is running
-                  // and if after 1 second volume is still low we trigger "onspeechend" event and set isSpeaking to false
+                  // if low level of volume detected we set timer to 1 second and set flag this timer is running
+                  // and if after 1 second volume is still low we trigger "onVoidDetected" event and set isSpeaking to false
                   // if volume is high again before 1 second we reset timer to 1 second
-                  if (average < this.minVolumeTreshhold) {
-                      if (that.isSpeaking) {
-                          if (!that.timer) {
-                              that.timer = setTimeout(() => {
-                                  that.isSpeaking = false;
-                                  that.onSpeechEnd();
-                                  that.timer = null;
-                              }, this.minSilenceDelay);
-                          }
-                      }
+                  // console.log('average >', average);
+                  // TODO define silence as a sharp and continuous transition of levels from high to low sound (no specific values)
+                  if (average < this.minVolumeTreshhold &&
+                      this.isSpeaking &&
+                      !this.timer) {
+                      this.startTime = Date.now();
+                      this.timer = setTimeout(() => {
+                          // const duration = Date.now() - this.startTime;
+                          // const duration2 = Date.now() - this.speechStartTime;
+                          Date.now() - this.startTime;
+                          this.isSpeaking = false;
+                          this.onVoidDetected();
+                          this.timer = null;
+                          // console.log(
+                          //   'volumeDetector: onVoidDetected()',
+                          //   duration,
+                          //   duration2
+                          // );
+                      }, this.minSilenceDelay);
+                      // console.log('volumeDetector setTimeout', this.timer);
                   }
               }
           };
@@ -6471,13 +6495,12 @@
       mediaRecorder;
       onRecordStop;
       onRecordStart;
-      onSpeechEnd;
       isSpeaking = false;
-      constructor({ onRecordStop, onRecordStart, onSpeechEnd }) {
+      volumeDetector;
+      constructor({ onRecordStop, onRecordStart }) {
           this.init();
           this.onRecordStop = onRecordStop;
           this.onRecordStart = onRecordStart;
-          this.onSpeechEnd = onSpeechEnd;
       }
       init = async () => {
           await register(await connect());
@@ -6490,17 +6513,20 @@
                       mimeType: 'audio/wav',
                   });
                   this.mediaRecorder.onstop = e => {
-                      this.onStop();
+                      this.onRecordStop(this.chunks);
+                      this.chunks = [];
                   };
                   this.stream = stream;
                   const onSpeechStart = () => {
+                      // console.log('recorder: onSpeechStart()');
                       this.isSpeaking = true;
                   };
-                  const onSpeechEnd = () => {
+                  const onVoidDetected = () => {
+                      // console.log('recorder: onVoidDetected()');
                       this.stopRecord();
                       this.isSpeaking = false;
                   };
-                  new CheckVolume(stream, onSpeechStart, onSpeechEnd);
+                  this.volumeDetector = new VolumeDetector(stream, onSpeechStart, onVoidDetected);
                   this.mediaRecorder.ondataavailable = e => {
                       if (this.isSpeaking || this.chunks.length === 0) {
                           this.chunks.push(e.data);
@@ -6513,15 +6539,15 @@
           }
       };
       startRecord() {
+          // console.log('recorder: startRecord()');
           this.mediaRecorder.start(1000);
           this.onRecordStart(this.stream);
+          this.volumeDetector.start();
       }
       stopRecord() {
+          // console.log('recorder: stopRecord()');
           this.mediaRecorder.stop();
-      }
-      onStop() {
-          this.onRecordStop(this.chunks);
-          this.chunks = [];
+          this.volumeDetector.stop();
       }
   }
 
@@ -6532,7 +6558,7 @@
       audioCtx;
       bufferLength;
       active;
-      silenceThreshold = 10;
+      silenceThreshold = 25;
       silenceTimeTreshhold = 2000;
       isSilence;
       silenceStartTime;
@@ -6611,7 +6637,7 @@
           if (response.status >= 300) {
               throw new Error(response.statusText);
           }
-          return result.data.transcript[0].transcription;
+          return result.data.transcript && result.data.transcript[0].transcription;
       }
       catch (err) {
           console.error(err);
@@ -6626,6 +6652,7 @@
       onerror;
       onend;
       onresult;
+      isStopped = false;
       minVolume = 7;
       continuous;
       lang;
@@ -6634,6 +6661,7 @@
       constructor(url, canvas) {
           this.url = url;
           this.url = url;
+          console.log('Custom SpeechRecognition constructor');
           if (canvas) {
               this.analyser = new VolumeAnalyser(canvas.getContext('2d'));
           }
@@ -6642,23 +6670,20 @@
       async init() {
           this.recorder = new AudioRecorder({
               onRecordStart: stream => {
+                  // console.log('audio: onRecordStart');
                   if (this.analyser)
                       this.analyser.start(stream);
               },
-              onSpeechEnd: () => {
-                  this.recorder.stopRecord();
-              },
               onRecordStop: async (chunks) => {
+                  // console.log('audio: onRecordStop');
                   if (this.analyser)
                       this.analyser.stop();
                   // saveAudio(chunks);
-                  this.onRecognize(new Blob(chunks));
-                  this.onspeechend();
-                  this.onend();
+                  this.transcript(new Blob(chunks));
               },
           });
       }
-      onRecognize = async (blob) => {
+      transcript = async (blob) => {
           const transcript = await recognize(this.url, blob);
           const event = {
               results: [
@@ -6669,18 +6694,57 @@
                   ],
               ],
           };
-          this.onresult(event);
+          if (!this.isStopped) {
+              this.onresult(event);
+              // this.onspeechend();
+              // this.onend();
+          }
       };
       start = () => {
+          // console.log('recognition: start()');
+          this.isStopped = false;
           this.recorder.startRecord();
       };
       stop = () => {
+          // console.log('recognition: stop()');
+          this.isStopped = true;
           this.recorder.stopRecord();
       };
   }
-  // export default window.SpeechRecognition ||
-  //   window.webkitSpeechRecognition ||
-  //   SpeechRecognition;
+  // export default SpeechRecognition;
+  var SpeechRecognition$1 = window.SpeechRecognition ||
+      window.webkitSpeechRecognition ||
+      SpeechRecognition;
+
+  class SpeechSynthesiser {
+      synth;
+      onend = () => { };
+      constructor() {
+          const synth = window.speechSynthesis;
+          this.synth = synth;
+      }
+      speak(text) {
+          const utterThis = new SpeechSynthesisUtterance(text);
+          const voice = getVoice(this.synth, 'Alex');
+          utterThis.voice = voice;
+          this.synth.speak(utterThis);
+          utterThis.onend = () => {
+              this.onend();
+          };
+      }
+  }
+  function getVoice(synth, name) {
+      const voice = synth.getVoices().find(voice => voice.name === name);
+      return voice;
+  }
+  // [
+  //   { voiceURI: 'Daniel' },
+  //   { voiceURI: 'Alex' },
+  //   { voiceURI: 'Veena' },
+  //   { voiceURI: 'Google US English' },
+  //   { voiceURI: 'Google UK English Female' },
+  //   { voiceURI: 'Google UK English Male' },
+  // ];
 
   var Author;
   (function (Author) {
@@ -6689,89 +6753,110 @@
   })(Author || (Author = {}));
 
   const messagesEl = document.querySelector('.messages');
-  const toggleEl = document.querySelector('.toggle');
+  const startEl = document.querySelector('.start');
+  const stopEl = document.querySelector('.stop');
+  const statusEl = document.querySelector('.status');
   const recognizeUrl = '/transcript';
   const replyUrl = '/gpt';
   const canvas = document.querySelector('.volume-analyser');
-  const recognition = new SpeechRecognition(recognizeUrl, canvas);
+  const recognition = new SpeechRecognition$1(recognizeUrl, canvas);
+  const speechSynthesiser = new SpeechSynthesiser();
   recognition.continuous = false;
   recognition.lang = 'en-US';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
   const state = {
-      recording: false,
-      stopText: '⏹️',
-      playText: '🎙️',
+      lastStartedAt: 0,
+      isStoppedByUser: false,
       messages: [],
-      isStopped: false,
   };
-  const start = async () => {
-      recognition.start();
-      console.log('start----->');
-      toggleEl.classList.add('animate');
-      setToogle(state.stopText);
-      state.isStopped = false;
-  };
-  const stop = () => {
-      recognition.stop();
-      toggleEl.classList.remove('animate');
-      setToogle(state.playText);
-      state.isStopped = true;
-      console.log('stop----->');
-  };
-  recognition.onspeechend = () => {
-      recognition.stop();
-      console.log('stop----->');
-  };
-  recognition.onerror = event => {
-      console.log(`Error occurred in recognition: ${event.error}`);
-  };
-  recognition.onend = () => {
-      if (state.isStopped) {
-          return;
-      }
-      // console.log('start after onend', state.isStopped);
-      setTimeout(start, 0);
-  };
+  // recognition.onspeechend = () => {
+  //   // console.log('onspeechend ---->');
+  // };
+  // recognition.onend = () => {
+  //   // stopRecognition('onend');
+  //   // restartRecognition('onend');
+  // };
   recognition.onresult = async (event) => {
-      const { transcript } = event.results[0][0];
-      if (transcript === '') {
-          return;
-      }
+      const transcript = event.results[0][0].transcript;
       state.messages.push({
           text: transcript,
           author: Author.You,
       });
       renderHTML();
       const reply = await getReply(replyUrl, state.messages
-      // "I'm old enough to know better, but young enough to still do it anyway."
+      // "I'm old enough to know better" + ' ' + Math.round(Math.random() * 100)
       );
-      state.messages.push({
-          text: reply,
-          author: Author.Bot,
-          isBot: true,
-      });
-      renderHTML();
-      // stop();
-      // speechSynthesiser.speak(reply);
-      // speechSynthesiser.onend = () => {
-      //   start();
-      //   // console.log('start after speech end', recognition);
-      // };
+      // console.log('onresult speak: ', { transcript, reply });
+      if (transcript && reply) {
+          state.messages.push({
+              text: reply,
+              author: Author.Bot,
+              isBot: true,
+          });
+          renderHTML();
+          // stopRecognition('before speak');
+          speechSynthesiser.speak(reply);
+          // console.log('onresult speak: ', { transcript, reply });
+          speechSynthesiser.onend = () => {
+              restartRecognition();
+          };
+      }
+      else {
+          // state.isStoppedByUser = false;
+          // console.log('onresult ----: ');
+          restartRecognition();
+      }
   };
-  toggleEl.addEventListener('click', () => {
-      state.recording = !state.recording;
-      state.recording ? start() : stop();
+  recognition.onerror = event => {
+      console.log('error', event);
+  };
+  startEl.addEventListener('click', () => {
+      startRecognition();
+      state.isStoppedByUser = false;
   });
-  function setToogle(text) {
-      toggleEl.textContent = text;
+  stopEl.addEventListener('click', () => {
+      stopRecognition();
+      state.isStoppedByUser = true;
+  });
+  function startRecognition(arg) {
+      try {
+          recognition.start();
+          // console.log('start ---->: ', arg);
+          state.lastStartedAt = Date.now();
+          statusEl.innerHTML = 'Listening...';
+      }
+      catch (err) {
+          console.log('start error', err);
+      }
   }
-  setToogle(state.playText);
+  function restartRecognition(arg) {
+      if (state.isStoppedByUser) {
+          return;
+      }
+      let timeSinceLastStart = Date.now() - state.lastStartedAt;
+      if (timeSinceLastStart < 1000) {
+          clearTimeout(state.timer);
+          state.timer = window.setTimeout(() => startRecognition(), 1000 - timeSinceLastStart);
+      }
+      else {
+          startRecognition();
+      }
+  }
+  function stopRecognition(arg) {
+      try {
+          recognition.stop();
+          // console.log('stop ---->', arg);
+          statusEl.innerHTML = 'Stopped';
+      }
+      catch (err) {
+          console.log('stop error', err);
+      }
+  }
   function renderHTML() {
       messagesEl.innerHTML = state.messages
           .map(message => `<div class="message ${message.author}">${message.text}</div>`)
           .join('');
   }
-  renderHTML();
 
 })();

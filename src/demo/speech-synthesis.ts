@@ -1,6 +1,6 @@
 export default class SpeechSynthesiser {
   synth: any;
-  onend: () => void;
+  onend: () => void = () => {};
 
   constructor() {
     const synth = window.speechSynthesis;
@@ -9,7 +9,7 @@ export default class SpeechSynthesiser {
 
   speak(text: string) {
     const utterThis = new SpeechSynthesisUtterance(text);
-    const voice = getVoice(this.synth, 'Google US English');
+    const voice = getVoice(this.synth, 'Alex');
 
     utterThis.voice = voice;
     this.synth.speak(utterThis);

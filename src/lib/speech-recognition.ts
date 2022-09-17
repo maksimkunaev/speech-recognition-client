@@ -11,6 +11,7 @@ class SpeechRecognition {
   onerror: (event: any) => void;
   onend: () => void;
   onresult: (event: ResultEvent) => {};
+  isStopped = false;
 
   minVolume: number = 7;
 
@@ -21,6 +22,7 @@ class SpeechRecognition {
 
   constructor(public url: string, canvas?: HTMLCanvasElement) {
     this.url = url;
+    console.log('Custom SpeechRecognition constructor');
 
     if (canvas) {
       this.analyser = new VolumeAnalyser(canvas.getContext('2d'));
@@ -32,23 +34,19 @@ class SpeechRecognition {
   async init() {
     this.recorder = new AudioRecorder({
       onRecordStart: stream => {
+        // console.log('audio: onRecordStart');
         if (this.analyser) this.analyser.start(stream);
       },
-      onSpeechEnd: () => {
-        this.recorder.stopRecord();
-      },
       onRecordStop: async chunks => {
+        // console.log('audio: onRecordStop');
         if (this.analyser) this.analyser.stop();
         // saveAudio(chunks);
-
-        this.onRecognize(new Blob(chunks));
-        this.onspeechend();
-        this.onend();
+        this.transcript(new Blob(chunks));
       },
     });
   }
 
-  onRecognize = async (blob: Blob) => {
+  transcript = async (blob: Blob) => {
     const transcript = await recognize(this.url, blob);
 
     const event: ResultEvent = {
@@ -61,20 +59,29 @@ class SpeechRecognition {
       ],
     };
 
-    this.onresult(event);
+    if (!this.isStopped) {
+      this.onresult(event);
+      // this.onspeechend();
+      // this.onend();
+    }
   };
 
   start = () => {
+    // console.log('recognition: start()');
+    this.isStopped = false;
+
     this.recorder.startRecord();
   };
 
   stop = () => {
+    // console.log('recognition: stop()');
+    this.isStopped = true;
+
     this.recorder.stopRecord();
   };
 }
 
-export default SpeechRecognition;
-
-// export default window.SpeechRecognition ||
-//   window.webkitSpeechRecognition ||
-//   SpeechRecognition;
+// export default SpeechRecognition;
+export default window.SpeechRecognition ||
+  window.webkitSpeechRecognition ||
+  SpeechRecognition;

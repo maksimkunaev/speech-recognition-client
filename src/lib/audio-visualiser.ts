@@ -6,7 +6,7 @@ export default class VolumeAnalyser {
   bufferLength: any;
   active: boolean;
 
-  silenceThreshold = 10;
+  silenceThreshold = 25;
   silenceTimeTreshhold = 2000;
 
   isSilence: boolean;
