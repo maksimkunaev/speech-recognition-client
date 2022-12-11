@@ -6391,9 +6391,10 @@
         this.stream = null;
         this.recorder = null;
         this.onResult = onResult;
-        this.audioData = [];
-        this.finalAudioData = [];
-        this.type = 'audio/wav';
+        this.chunkAudioData = [];
+        this.allAudioData = [];
+        this.mimeType = 'audio/wav';
+        this.chunkId = 0;
 
         this.init();
       }
@@ -6406,84 +6407,97 @@
         navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
           this.stream = stream;
           this.recorder = new mediaRecorderConstructor(stream, {
-            mimeType: this.type,
+            mimeType: this.mimeType,
           });
           this.recorder.ondataavailable = this.handleDataAvailable.bind(this);
           this.recorder.start(maxDuration);
 
-          // Clear the array thatof the recorded audio data
-          this.audioData = [];
+          // Clear the array that of the recorded audio data
+          this.chunkAudioData = [];
 
           // Send the recorded audio data to the server in intervals
-          this.intervalId = setInterval(() => {
+          this.intervalId = setTimeout(() => {
             this.stop();
-            setTimeout(() => this.start(maxDuration, interval), 50);
+            setTimeout(() => this.start(maxDuration, interval), 20);
           }, interval);
         });
       }
 
-      stopByUser() {
-        clearInterval(this.intervalId);
-        this.stop();
-      }
-
       stop() {
-        clearInterval(this.intervalId);
+        // clearTimeout(this.intervalId);
 
         if (this.recorder && this.recorder.state !== 'inactive') {
           this.recorder.stop();
           this.stream.getTracks().forEach(track => track.stop());
 
           // Create a new Blob object that contains all of the recorded audio data
-          const audioBlob = new Blob(this.audioData);
+          const audioBlob = new Blob(this.chunkAudioData);
 
           // Send the Blob object to the server
-          this.sendAudioData(audioBlob);
+          this.sendAudioData(audioBlob, this.chunkId);
+          this.chunkId++;
         }
-      }
-
-      getFinalTranscript() {
-        const audioBlob = new Blob(this.finalAudioData, {
-          type: this.type,
-        });
-        this.sendAudioData(audioBlob, true);
-
-        this.finalAudioData = [];
       }
 
       handleDataAvailable(event) {
         if (event.data.size > 0) {
           // Push the recorded data to the array
-          this.audioData.push(event.data);
-          this.finalAudioData.push(event.data);
+          this.chunkAudioData.push(event.data);
+          this.allAudioData.push(event.data);
         }
       }
 
-      sendAudioData(audioData, final) {
-        console.log(audioData);
+      stopByUser() {
+        clearInterval(this.intervalId);
+        this.stop();
+        this.getFinalTranscript();
+      }
+
+      getFinalTranscript() {
+        const audioBlob = new Blob(this.allAudioData, {
+          type: this.mimeType,
+        });
+        this.sendAudioData(audioBlob, 'final');
+        this.allAudioData = [];
+      }
+
+      sendAudioData(audioData, chunkId) {
+        const formData = new FormData();
+        formData.append('sample', audioData, 'filename.wav');
+        formData.append('chunk_id', chunkId);
+
         fetch(this.apiUrl, {
           method: 'POST',
-          body: audioData,
+          body: formData,
         })
           .then(response => response.json())
           .then(data => {
             if (this.onResult) {
-              this.onResult(data);
+              this.onResult(chunkId, data);
             }
+          })
+          .catch(err => {
+            console.log('Error', chunkId, err.message);
           });
       }
     }
 
-    const resultText = document.querySelector('.transcript');
+    document.querySelector('.transcript');
     const startButton = document.querySelector('.start');
     const stopButton = document.querySelector('.stop');
-    const finalButton = document.querySelector('.final');
-    document.querySelector('.final-text');
 
-    const onResult = data => {
+    let state = {
+      transcript: [],
+    };
+
+    const onResult = (chunkId, data) => {
       const { transcript } = data.data;
       // Create a new element to display the text
-      resultText.textContent += transcript;
+      // console.log('onResult', chunkId, data, transcript);
+      // resultText.textContent += transcript;
+      state.transcript[chunkId] = transcript;
+      console.log('transcript', state.transcript);
+      console.log('\n');
     };
 
     const voiceRecorder = new VoiceRecorder(
@@ -6493,6 +6507,5 @@
 
     startButton.addEventListener('click', () => voiceRecorder.start(512, 1024 * 2));
     stopButton.addEventListener('click', () => voiceRecorder.stopByUser());
-    finalButton.addEventListener('click', () => voiceRecorder.getFinalTranscript());
 
 })();
