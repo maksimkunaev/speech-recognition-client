@@ -4,7 +4,7 @@ import typescript from 'rollup-plugin-typescript2';
 import livereload from 'rollup-plugin-livereload';
 
 export default {
-  input: 'src/demo/main.ts',
+  input: 'src/demo/main.js',
   output: {
     file: 'src/demo/bundle.js',
     format: 'iife',
@@ -12,10 +12,10 @@ export default {
   plugins: [
     resolve(),
     commonjs(),
-    typescript({
-      useTsconfigDeclarationDir: true,
-      tsconfig: 'tsconfig.json',
-    }),
+    // typescript({
+    //   useTsconfigDeclarationDir: true,
+    //   tsconfig: 'tsconfig.json',
+    // }),
     livereload(),
   ],
 };
