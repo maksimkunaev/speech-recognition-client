@@ -1,0 +1,35 @@
+{
+  "name": "speech-recognition-client",
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foreverido/roothree.git"
+  },
+  "main": "dist/main.js",
+  "types": "dist/types",
+  "dependencies": {
+    "extendable-media-recorder": "^6.6.9",
+    "extendable-media-recorder-wav-encoder": "^7.0.74"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^22.0.2",
+    "@rollup/plugin-node-resolve": "^13.3.0",
+    "rollup": "^2.78.0",
+    "rollup-plugin-livereload": "^2.0.5",
+    "rollup-plugin-typescript2": "^0.32.1",
+    "serve": "^14.0.1",
+    "typescript": "^4.7.4",
+    "rollup-plugin-optimize-js": "^0.0.4",
+    "rollup-plugin-uglify": "^6.0.4"
+  },
+  "scripts": {
+    "dev": "rollup --config rollup.config.dev.js --environment PORT=4444 --environment INCLUDE_DEPS,BUILD:production --watch",
+    "build": "rollup -c rollup.config.js",
+    "build:dev": "DEVELOPMENT=true yarn build"
+  },
+  "description": "",
+  "homepage": "",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
