@@ -1,9 +1,9 @@
 {
   "name": "speech-recognition-client",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/foreverido/roothree.git"
+    "url": "git+https://github.com/maksimkunaev/speech-recognition-client"
   },
   "main": "dist/main.js",
   "types": "dist/types",
