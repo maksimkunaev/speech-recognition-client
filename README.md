@@ -1,6 +1,7 @@
 # Speech recognition client for custom API
 
-`import SpeechRecognition from './main';
+```javascript
+import SpeechRecognition from './main';
 
 const apiURL = 'http://127.0.0.1:5000/transcript';
 const resultText = document.querySelector('.transcript');
@@ -19,15 +20,18 @@ const onResult = (chunkId, data) => {
   console.log('\n');
 };
 
-const voiceRecorder = new SpeechRecognition(apiURL, onResult);
+const speechRecognition = new SpeechRecognition(apiURL, onResult);
 
-startButton.addEventListener('click', () => voiceRecorder.start(512, 1024 * 8));
-stopButton.addEventListener('click', () => voiceRecorder.stop());`
-
+startButton.addEventListener('click', () =>
+  speechRecognition.start(512, 1024 * 8)
+);
+stopButton.addEventListener('click', () => speechRecognition.stop());
+```
 
 ## Run server
+
 `./node_modules/.bin/serve src -p 3000`
 
 ## Run client demo
-`npm run dev`
 
+`npm run dev`

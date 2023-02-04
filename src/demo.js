@@ -11,7 +11,9 @@ const state = {
 
 const onResult = (chunkId, data) => {
   const { transcript } = data.data;
-  resultText.textContent += transcript;
+  const text = document.createElement('p');
+  text.textContent = `[${chunkId}]: ${transcript}`;
+  resultText.appendChild(text);
   state.transcript[chunkId] = transcript;
   console.log('transcript', state.transcript);
   console.log('\n');
@@ -19,5 +21,5 @@ const onResult = (chunkId, data) => {
 
 const voiceRecorder = new SpeechRecognition(apiURL, onResult);
 
-startButton.addEventListener('click', () => voiceRecorder.start(512, 1024 * 8));
+startButton.addEventListener('click', () => voiceRecorder.start(1024 * 3));
 stopButton.addEventListener('click', () => voiceRecorder.stop());

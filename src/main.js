@@ -11,6 +11,7 @@ class SpeechRecognition {
     this.allAudioData = [];
     this.mimeType = 'audio/wav';
     this.chunkId = 0;
+    this.timeslice = 512;
 
     this.init();
   }
@@ -19,14 +20,14 @@ class SpeechRecognition {
     await register(await connect());
   }
 
-  async start(maxDuration, interval) {
+  async start(interval) {
     navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
       this.stream = stream;
       this.recorder = new MediaRecorder(stream, {
         mimeType: this.mimeType,
       });
       this.recorder.ondataavailable = this.handleDataAvailable.bind(this);
-      this.recorder.start(maxDuration);
+      this.recorder.start(this.timeslice);
 
       // Clear the array that of the recorded audio data
       this.chunkAudioData = [];
@@ -34,11 +35,20 @@ class SpeechRecognition {
       // Send the recorded audio data to the server in intervals
       this.intervalId = setTimeout(() => {
         this._stop();
-        setTimeout(() => this.start(maxDuration, interval), 20);
+        setTimeout(() => this.start(interval), 20);
       }, interval);
     });
   }
 
+  handleDataAvailable(event) {
+    if (event.data.size > 0) {
+      // Push the recorded data to the array
+      this.chunkAudioData.push(event.data);
+      this.allAudioData.push(event.data);
+    }
+  }
+
+  // stop by timer
   _stop() {
     // clearTimeout(this.intervalId);
 
@@ -55,14 +65,7 @@ class SpeechRecognition {
     }
   }
 
-  handleDataAvailable(event) {
-    if (event.data.size > 0) {
-      // Push the recorded data to the array
-      this.chunkAudioData.push(event.data);
-      this.allAudioData.push(event.data);
-    }
-  }
-
+  // stop by user
   stop() {
     clearInterval(this.intervalId);
     this._stop();
@@ -71,7 +74,7 @@ class SpeechRecognition {
 
   getFinalTranscript() {
     const audioBlob = new Blob(this.allAudioData, {
-      type: this.mimeType,
+      // type: this.mimeType,
     });
     this.sendAudioData(audioBlob, 'final');
     this.allAudioData = [];
